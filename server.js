@@ -1,3 +1,7 @@
+/*
+    Dev by HellsCoder for HypeCloud LLC, 2018
+*/
+
 const express = require('express');
 const  config = require('./config');
 const  json = require('./lib/messages');
