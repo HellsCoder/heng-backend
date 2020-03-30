@@ -1,0 +1,29 @@
+{
+    "methods": [
+        {
+            "method": "user.auth",
+            "minVersion": 1.0,
+            "maxVersion": 1.0,
+            "description": "This method is required for login and password authorization",
+            "fields": [
+                {
+                    "field": "login",
+                    "description": "User login",
+                    "required": true
+                },
+                {
+                    "field": "password",
+                    "description": "User password",
+                    "required": true
+                }
+            ]
+        }
+    ],
+
+    "errors": [
+        {
+            "code": 100,
+            "text": "Wrong login or password"
+        }
+    ]
+}
