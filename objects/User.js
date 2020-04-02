@@ -12,21 +12,6 @@ const userSchema = new Schema('users', {
     'username': {
         length: 32,
         type: String
-    },
-
-    'access_token': {
-        length: 256,
-        type: String
-    },
-
-    'vk_id': {
-        length: 16,
-        type: Number
-    },
-
-    'ruads_token': {
-        length: 32,
-        type: String
     }
 });
 
