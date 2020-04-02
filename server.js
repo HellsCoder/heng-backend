@@ -18,7 +18,6 @@ const config = require('./config');
 const scheme = require('./api/scheme.json');
 const json = require('./lib/messages')(scheme);
 
-
 let app = express();
 
 let ServerMethod = {
@@ -28,7 +27,6 @@ let ServerMethod = {
     findMethod: function(method){
         for(let i = 0; i < scheme.methods.length; i++){
             let methodObject = scheme.methods[i];
-            console.info(methodObject);
             if(methodObject.method === method){
                 return true;
             }
@@ -125,7 +123,7 @@ app.get('/:object.:method', function(req, res){
             success: function(response){
                 res.send(json.makeSuccess(response));
             }
-        }, req.params);
+        }, req.query);
     }catch(e){
         console.info(e);
         return res.send(json.makeError(4, {
