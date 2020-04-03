@@ -20,6 +20,25 @@ const json = require('./lib/messages')(scheme);
 
 let app = express();
 
+let escape = (str) => {
+    let filterCodes = [
+        34, 38, 39, 47, 58, 59, 60, 61, 62, 92
+    ];
+    let newStr = "";
+    let nextCode = 0;
+    for (let i = 0;i < str.length;i++){
+        nextCode = str.charCodeAt(i);
+        if (filterCodes.includes(nextCode)){
+            newStr += "&#"+nextCode+";";
+        }
+        else{
+            newStr += str[i];
+        }
+    }
+    return newStr;
+}
+
+
 let ServerMethod = {
     /*
         Ищет метод в схеме API
@@ -115,6 +134,15 @@ app.get('/:object.:method', function(req, res){
         /*
             TODO: Call method
         */
+        let prepareQuery = req.query;
+
+        /*
+            Заменяем недоверенные символы чтобы не допустить попадание в базу кода
+        */
+        for(let i in req.query){
+            prepareQuery[i] = escape(prepareQuery[i]);
+        }
+
         let callMethod = require('./api/' + req.params.object + '/' + req.params.method);
         callMethod({
             error: function(code){
@@ -123,7 +151,7 @@ app.get('/:object.:method', function(req, res){
             success: function(response){
                 res.send(json.makeSuccess(response));
             }
-        }, req.query);
+        }, prepareQuery);
     }catch(e){
         console.info(e);
         return res.send(json.makeError(4, {
