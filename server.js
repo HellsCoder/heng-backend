@@ -106,7 +106,7 @@ app.all('*', function(req, res, next) {
 app.get('/:object.:method', function(req, res){
     res.setHeader("Access-Control-Allow-Origin", "*");
     if(!req.query.v){
-        res.send(json.makeError(1, {
+        return res.send(json.makeError(1, {
             "text": "Api version has no gived"
         }));
     }
