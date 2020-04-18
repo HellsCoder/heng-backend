@@ -11,6 +11,7 @@
     3 - Вызван неизвестный метод
     4 - В методе произошла непредвиденная ошибка
     5 - Ошибка валидации. Не заполнены поля
+    6 - Ошибка вадидации типов
 */
 
 const express = require('express');
@@ -21,23 +22,39 @@ const json = require('./lib/messages')(scheme);
 let app = express();
 
 let escape = (str) => {
-    let filterCodes = [
-        34, 38, 39, 47, 58, 59, 60, 61, 62, 92
-    ];
-    let newStr = "";
-    let nextCode = 0;
-    for (let i = 0;i < str.length;i++){
-        nextCode = str.charCodeAt(i);
-        if (filterCodes.includes(nextCode)){
-            newStr += "&#"+nextCode+";";
+    if(typeof(str) === "string"){
+        let filterCodes = [
+            34, 38, 39, 47, 58, 59, 60, 61, 62, 92
+        ];
+        let newStr = "";
+        let nextCode = 0;
+        for (let i = 0;i < str.length;i++){
+            nextCode = str.charCodeAt(i);
+            if (filterCodes.includes(nextCode)){
+                newStr += "&#"+nextCode+";";
+            }
+            else{
+                newStr += str[i];
+            }
         }
-        else{
-            newStr += str[i];
-        }
+        return newStr;
     }
-    return newStr;
-}
+    return str;
+};
 
+let recursiveEscape = (response) => {
+    if(response instanceof Object){
+        for(let i in response){
+            if(response[i] instanceof Object){
+                response[i] = recursiveEscape(response[i]);
+            }
+            response[i] = escape(response[i]);
+        }
+    }else{
+        response = escape(response);
+    }
+    return response;
+};
 
 let ServerMethod = {
     /*
@@ -74,6 +91,49 @@ let ServerMethod = {
             }
         }
         return validateErrors;
+    },
+
+    /*
+        Валидирует типы вводимых полей
+    */
+    validateTypes: function(method, params){
+        let validateErrors = [];
+        for(let i = 0; i < scheme.methods.length; i++){
+            let methodObject = scheme.methods[i];
+            if(methodObject.method === method){
+                for(let i = 0; i < methodObject.fields.length; i++){
+                    let field = methodObject.fields[i];
+                    if(field.type && field.type === "number"){
+                        params[field.field] = parseInt(params[field.field]);
+                        if(isNaN(params[field.field])){
+                            validateErrors.push({
+                                "field": field.field,
+                                "description": field.description,
+                                "type": field.type
+                            });
+                        }
+                    }
+                    if(field.type && field.type === "float"){
+                        params[field.field] = parseFloat(params[field.field]);
+                        if(isNaN(params[field.field])){
+                            validateErrors.push({
+                                "field": field.field,
+                                "description": field.description,
+                                "type": field.type
+                            });
+                        }
+                    }
+                }
+                return {
+                    errors: validateErrors,
+                    params: params
+                };
+            }
+        }
+        return {
+            errors: validateErrors,
+            params: params
+        };
     },
 
     validateVersion: function(method, currentVersion){
@@ -126,34 +186,45 @@ app.get('/:object.:method', function(req, res){
             }));
         }
 
+        let types = ServerMethod.validateTypes(method, req.query);
+        if(types.errors.length > 0){
+            return res.send(json.makeError(6, {
+                "text": "Cast fields failed", 
+                "fields": types.errors
+            }));
+        }
+        req.query = types.params;
+
         let version = ServerMethod.validateVersion(method, req.query.v);
         if(version !== true){
             return res.send(json.makeError(2, version));
         }
 
-        /*
-            TODO: Call method
-        */
-        let prepareQuery = req.query;
-
-        /*
-            Заменяем недоверенные символы чтобы не допустить попадание в базу кода
-        */
-        for(let i in req.query){
-            prepareQuery[i] = escape(prepareQuery[i]);
-        }
-
         let callMethod = require('./api/' + req.params.object + '/' + req.params.method);
         callMethod({
             error: function(code){
+                if(config.DEBUG){
+                    console.info("Server returned code " + code + " with method " + req.params.object + "." + req.params.method);
+                }
                 res.send(json.makeError(code));
             },
-            success: function(response){
+            success: function(response, escape){
+                if(config.DEBUG){
+                    console.info("Server returned success "+ req.params.object + "." + req.params.method, response);
+                }
+                /*
+                    Заменяем недоверенные символы чтобы не допустить попадание в базу кода
+                */
+                if(escape !== false){
+                    response = recursiveEscape(response);
+                }
                 res.send(json.makeSuccess(response));
             }
-        }, prepareQuery);
+        }, req.query);
     }catch(e){
-        console.info(e);
+        if(config.DEBUG){
+            console.info(e);
+        }
         return res.send(json.makeError(4, {
             "text": "Method has generated exception. Please try use later"
         }));
